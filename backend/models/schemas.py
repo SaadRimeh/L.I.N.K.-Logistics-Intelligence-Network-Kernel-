@@ -84,3 +84,39 @@ class ScenarioSimulateResponse(BaseModel):
     closed_edges: List[str]
     closed_nodes: List[str]
     recommended_contingency: str
+
+class ConflictEvent(BaseModel):
+    event_id: str
+    event_type: str = "Air/drone strike"
+    actor: str = "Regional Armed Group"
+    location: str
+    country: str
+    lat: float
+    lon: float
+    radius_km: float = 200.0
+    fatalities: Optional[int] = 0
+    source: str = "ACLED Intelligence Feed"
+
+class CollisionResult(BaseModel):
+    event_id: str
+    location: str
+    danger_zone_polygon: Dict[str, Any]  # GeoJSON Polygon for Deck.gl
+    intersected_corridors: List[Dict[str, Any]]
+    total_corridors_closed: int
+    emergency_advisory: str
+
+class EmergencyDivertRequest(BaseModel):
+    flight_callsign: str = "UAE841"
+    current_lat: float = 34.5
+    current_lon: float = 48.0
+    original_destination_id: str = "AIRPORT_IST"
+
+class EmergencyDivertResponse(BaseModel):
+    flight_callsign: str
+    in_danger_zone: bool
+    nearest_safe_haven: LocationNode
+    distance_km: float
+    estimated_divert_time_min: float
+    divert_heading_degrees: float
+    flight_vector_coordinates: List[List[float]]  # [[lon, lat], [lon, lat]] for Deck.gl
+    action_directive: str

@@ -8,12 +8,18 @@ from backend.config import settings
 from backend.db.neo4j_client import neo4j_client
 from backend.services.graph_service import graph_service
 from backend.services.routing_engine import routing_engine
+from backend.services.collision_engine import collision_engine
+from backend.services.acled_service import acled_service
 from backend.models.schemas import (
     GraphResponse,
     RouteOptimizationRequest,
     RouteOptimizationResponse,
     ScenarioSimulateRequest,
-    ScenarioSimulateResponse
+    ScenarioSimulateResponse,
+    ConflictEvent,
+    CollisionResult,
+    EmergencyDivertRequest,
+    EmergencyDivertResponse
 )
 
 # Logging configuration
@@ -55,7 +61,8 @@ def root():
         "status": "OPERATIONAL",
         "neo4j_connected": neo4j_client.is_connected(),
         "total_nodes": graph_service.graph.number_of_nodes(),
-        "total_edges": graph_service.graph.number_of_edges()
+        "total_edges": graph_service.graph.number_of_edges(),
+        "active_danger_zones": len(collision_engine.get_active_danger_zones())
     }
 
 @app.get("/api/health")
@@ -64,7 +71,8 @@ def health_check():
         "status": "HEALTHY",
         "neo4j_connected": neo4j_client.is_connected(),
         "nodes_loaded": len(graph_service.nodes_dict),
-        "edges_loaded": graph_service.graph.number_of_edges()
+        "edges_loaded": graph_service.graph.number_of_edges(),
+        "active_danger_zones": len(collision_engine.get_active_danger_zones())
     }
 
 @app.get("/api/network", response_model=GraphResponse)
@@ -85,6 +93,45 @@ def optimize_route(request: RouteOptimizationRequest):
     response = routing_engine.find_optimal_multimodal_route(request)
     return response
 
+# ==============================================================================
+# Step 3: Hazard & Collision Engine Endpoints (Scenario 2)
+# ==============================================================================
+
+@app.get("/api/hazards/presets", response_model=List[ConflictEvent])
+def get_conflict_presets():
+    """Returns preset ACLED regional conflict events for real-time simulation."""
+    return acled_service.get_simulated_events()
+
+@app.get("/api/hazards/active")
+def get_active_danger_zones():
+    """Returns all active conflict danger zones with GeoJSON polygons for Deck.gl."""
+    return collision_engine.get_active_danger_zones()
+
+@app.post("/api/hazards/acled-event", response_model=CollisionResult)
+def ingest_acled_event(event: ConflictEvent):
+    """
+    Ingests an ACLED conflict event, generates Shapely danger polygon,
+    detects intersected flight corridors/routes, and closes them in Neo4j and memory.
+    """
+    return collision_engine.detect_and_resolve_conflict(event)
+
+@app.post("/api/hazards/simulate-preset/{preset_index}", response_model=CollisionResult)
+def simulate_acled_preset(preset_index: int):
+    """Triggers preset ACLED incident (0: Iran Airspace, 1: Syria Airspace, 2: Red Sea)."""
+    return acled_service.trigger_event_simulation(preset_index)
+
+@app.post("/api/flight/emergency-divert", response_model=EmergencyDivertResponse)
+def compute_emergency_diversion(request: EmergencyDivertRequest):
+    """
+    Computes emergency diversion vector to the nearest safe-haven airport
+    (e.g., Queen Alia Intl in Amman or Baghdad Intl) when an aircraft encounters a danger zone.
+    """
+    return collision_engine.calculate_emergency_diversion(request)
+
+# ==============================================================================
+# Geopolitical Scenario Simulators & Network Reset
+# ==============================================================================
+
 @app.post("/api/scenario/simulate", response_model=ScenarioSimulateResponse)
 def simulate_geopolitical_scenario(request: ScenarioSimulateRequest):
     """
@@ -99,7 +146,6 @@ def simulate_geopolitical_scenario(request: ScenarioSimulateRequest):
     if request.scenario_id == "scenario_1_maritime_closure":
         title = "Scenario 1: Strait of Hormuz Maritime Chokepoint Closure"
         description = "Armed conflict in the Strait of Hormuz has halted all maritime tanker and container vessel transit. Routing diverted to Saudi Land Bridge."
-        # Close Hormuz chokepoint & connected maritime corridors
         closed_nodes = ["CHOKE_HORMUZ"]
         graph_service.set_edge_status("PORT_SALALAH", "CHOKE_HORMUZ", "CLOSED")
         graph_service.set_edge_status("CHOKE_HORMUZ", "PORT_SALALAH", "CLOSED")
@@ -110,18 +156,12 @@ def simulate_geopolitical_scenario(request: ScenarioSimulateRequest):
 
     elif request.scenario_id == "scenario_2_airspace_hazard":
         title = "Scenario 2: Iran / Syria Sudden Airspace Interdiction"
-        description = "Missile threat and active conflict declared over central airspace. Commercial flight corridors closed."
-        graph_service.set_edge_status("AIRPORT_DXB", "AIRPORT_IKA", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_IKA", "AIRPORT_DXB", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_IKA", "AIRPORT_IST", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_IST", "AIRPORT_IKA", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_RUH", "AIRPORT_DAM", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_DAM", "AIRPORT_RUH", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_DAM", "AIRPORT_IST", "CLOSED")
-        graph_service.set_edge_status("AIRPORT_IST", "AIRPORT_DAM", "CLOSED")
-        closed_edges = ["AIR-DXB-IKA", "AIR-IKA-DXB", "AIR-IKA-IST", "AIR-IST-IKA", "AIR-RUH-DAM", "AIR-DAM-RUH", "AIR-DAM-IST", "AIR-IST-DAM"]
-        closed_nodes = ["AIRPORT_IKA", "AIRPORT_DAM"]
-        contingency = "Divert civilian and cargo flights via Amman (AMM) and Baghdad (BGW) safe corridors."
+        description = "Missile threat and active conflict declared over central airspace. Commercial flight corridors closed via Shapely collision detection."
+        # Trigger preset 0 (Iran Airspace) via ACLED collision engine
+        res = acled_service.trigger_event_simulation(0)
+        closed_edges = [c["route_code"] for c in res.intersected_corridors]
+        closed_nodes = ["AIRPORT_IKA"]
+        contingency = "Divert civilian and cargo flights immediately to certified Safe Havens: Amman (AMM) and Baghdad (BGW)."
 
     elif request.scenario_id == "scenario_3_turkish_lifeline":
         title = "Scenario 3: Southern Maritime Red Sea / Gulf Severed - Turkish Lifeline Activated"
@@ -149,11 +189,12 @@ def simulate_geopolitical_scenario(request: ScenarioSimulateRequest):
 
 @app.post("/api/network/reset")
 def reset_network():
-    """Restores all corridors, chokepoints, and nodes to normal OPEN state."""
+    """Restores all corridors, chokepoints, and nodes to normal OPEN state, clearing danger zones."""
     graph_service.reset_network_status()
+    collision_engine.clear_danger_zones()
     return {
         "status": "RESET_COMPLETE",
-        "message": "All maritime routes, flight corridors, and land bridges restored to OPEN status."
+        "message": "All maritime routes, flight corridors, and land bridges restored to OPEN. Danger zones cleared."
     }
 
 if __name__ == "__main__":
