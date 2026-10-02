@@ -26,10 +26,12 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 2000
+      zIndex: 2000,
+      direction: 'rtl',
+      textAlign: 'right'
     }}>
       <div className="glass-panel" style={{
-        width: '540px',
+        width: '560px',
         borderRadius: '12px',
         padding: '24px',
         border: '1px solid rgba(239, 68, 68, 0.5)',
@@ -55,10 +57,10 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: '#fca5a5' }}>
-                SCENARIO 2: AIRSPACE INTERDICTION & DIVERSION
+                السيناريو الثاني: اعتراض الأجواء والهبوط الاضطراري
               </h3>
               <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Automated Collision Engine & Certified Safe Haven Emergency Landing
+                محرك اكتشاف التصادم المكاني (Shapely) والتوجيه الآلي لأقرب ملاذ آمن معتمد
               </p>
             </div>
           </div>
@@ -71,7 +73,7 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           <div>
             <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              FLIGHT CALLSIGN:
+              رمز نداء الرحلة (Callsign):
             </label>
             <input
               type="text"
@@ -84,13 +86,14 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
                 background: 'rgba(15, 23, 42, 0.8)',
                 border: '1px solid var(--border-glow)',
                 color: 'white',
-                fontFamily: 'var(--font-mono)'
+                fontFamily: 'var(--font-mono)',
+                textAlign: 'center'
               }}
             />
           </div>
           <div>
             <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              LATITUDE (°N):
+              خط العرض الحالي (°N):
             </label>
             <input
               type="number"
@@ -104,13 +107,14 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
                 background: 'rgba(15, 23, 42, 0.8)',
                 border: '1px solid var(--border-glow)',
                 color: 'white',
-                fontFamily: 'var(--font-mono)'
+                fontFamily: 'var(--font-mono)',
+                textAlign: 'center'
               }}
             />
           </div>
           <div>
             <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              LONGITUDE (°E):
+              خط الطول الحالي (°E):
             </label>
             <input
               type="number"
@@ -124,7 +128,8 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
                 background: 'rgba(15, 23, 42, 0.8)',
                 border: '1px solid var(--border-glow)',
                 color: 'white',
-                fontFamily: 'var(--font-mono)'
+                fontFamily: 'var(--font-mono)',
+                textAlign: 'center'
               }}
             />
           </div>
@@ -134,9 +139,9 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
           onClick={handleSimulate}
           disabled={isCalculating}
           className="cyber-btn cyber-btn-danger"
-          style={{ width: '100%', padding: '10px' }}
+          style={{ width: '100%', padding: '10px', fontSize: '0.84rem' }}
         >
-          <Plane size={16} /> INTERCEPT & COMPUTE SAFE HAVEN VECTOR
+          <Plane size={16} /> اعتراض الطائرة وحساب متجه الهبوط الآمن
         </button>
 
         {/* Results Card */}
@@ -152,28 +157,28 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: 600, fontSize: '0.85rem' }}>
-                <ShieldCheck size={18} /> SAFE HAVEN IDENTIFIED: {diversionResult.nearest_safe_haven.name}
+                <ShieldCheck size={18} /> تم تحديد الملاذ الآمن: {diversionResult.nearest_safe_haven.name_ar || diversionResult.nearest_safe_haven.name}
               </div>
               <span className="badge badge-emerald">{diversionResult.nearest_safe_haven.iata}</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
               <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '6px', borderRadius: '4px' }}>
-                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>BEARING / HEADING</div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>زاوية الانعطاف (Heading)</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
                   {diversionResult.divert_heading_degrees}°
                 </div>
               </div>
               <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '6px', borderRadius: '4px' }}>
-                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>DISTANCE</div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>المسافة المتبقية</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>
-                  {diversionResult.distance_km} km
+                  {diversionResult.distance_km} كم
                 </div>
               </div>
               <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '6px', borderRadius: '4px' }}>
-                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>EST. TOUCHDOWN</div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>زمن الوصول المقدر</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: '#10b981' }}>
-                  {diversionResult.estimated_divert_time_min} min
+                  {diversionResult.estimated_divert_time_min} دقيقة
                 </div>
               </div>
             </div>
@@ -187,7 +192,7 @@ export default function EmergencyModal({ isOpen, onClose, onExecuteDiversion, di
               borderRadius: '6px',
               lineHeight: 1.4
             }}>
-              <strong>DIRECTIVE:</strong> {diversionResult.action_directive}
+              <strong>توجيه الملاحة الجوية الفوري:</strong> تم إصدار أمر انحراف تكتيكي إلزامي للرحلة {diversionResult.flight_callsign} للتوجه فوراً إلى {diversionResult.nearest_safe_haven.name_ar} تفادياً لمنطقة النزاع الجوي.
             </div>
           </div>
         )}

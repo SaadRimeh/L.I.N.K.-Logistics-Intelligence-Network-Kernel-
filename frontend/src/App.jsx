@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import ControlPanel from './components/ControlPanel';
 import MapDeckView from './components/MapDeckView';
 import EmergencyModal from './components/EmergencyModal';
+import DecisionDeck from './components/DecisionDeck';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -21,8 +22,15 @@ export default function App() {
   
   const [activeDangerZones, setActiveDangerZones] = useState([]);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
+  const [decisionDeckOpen, setDecisionDeckOpen] = useState(false);
+  const [intelligenceData, setIntelligenceData] = useState(null);
+  
   const [diversionResult, setDiversionResult] = useState(null);
   const [isCalculatingDiversion, setIsCalculatingDiversion] = useState(false);
+
+  // Live Flights State from OpenSky Network
+  const [liveFlights, setLiveFlights] = useState([]);
+  const [showLiveFlights, setShowLiveFlights] = useState(true);
 
   // Fetch full digital twin graph on mount
   const fetchNetwork = async () => {
@@ -55,9 +63,43 @@ export default function App() {
     }
   };
 
+  const fetchLiveFlights = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/flights/live`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveFlights(data.flights || []);
+      }
+    } catch (err) {
+      console.warn('Error fetching live OpenSky flights:', err);
+    }
+  };
+
+  const fetchDecisionIntelligence = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/intelligence/evaluate`);
+      if (res.ok) {
+        const data = await res.json();
+        setIntelligenceData(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching decision intelligence:', err);
+    }
+  };
+
   useEffect(() => {
     fetchNetwork();
     fetchActiveHazards();
+    fetchLiveFlights();
+    fetchDecisionIntelligence();
+
+    // Auto refresh live flights every 12 seconds
+    const interval = setInterval(() => {
+      fetchLiveFlights();
+      fetchDecisionIntelligence();
+    }, 12000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate Optimal Route
@@ -77,6 +119,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setRouteResult(data);
+        await fetchDecisionIntelligence();
       }
     } catch (err) {
       console.error('Failed to calculate route:', err);
@@ -95,11 +138,11 @@ export default function App() {
         body: JSON.stringify({ scenario_id: scenarioId })
       });
       if (res.ok) {
-        // Refresh network to reflect newly closed routes
         await fetchNetwork();
         await fetchActiveHazards();
+        await fetchLiveFlights();
+        await fetchDecisionIntelligence();
 
-        // Adjust default origin/destination according to scenario
         if (scenarioId === 'scenario_1_maritime_closure') {
           setOrigin('PORT_SALALAH');
           setDestination('PORT_DAMMAM');
@@ -112,7 +155,6 @@ export default function App() {
           setDestination('HUB_RIYADH');
         }
 
-        // Auto recalculate route
         setTimeout(() => handleCalculateRoute(), 200);
       }
     } catch (err) {
@@ -132,6 +174,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setDiversionResult(data);
+        await fetchDecisionIntelligence();
       }
     } catch (err) {
       console.error('Failed to compute emergency diversion:', err);
@@ -149,6 +192,8 @@ export default function App() {
       setDiversionResult(null);
       await fetchNetwork();
       await fetchActiveHazards();
+      await fetchLiveFlights();
+      await fetchDecisionIntelligence();
     } catch (err) {
       console.error('Error resetting network:', err);
     }
@@ -163,11 +208,20 @@ export default function App() {
     }
   };
 
+  const handleFlightClick = (flightProps) => {
+    if (flightProps.in_danger) {
+      setEmergencyModalOpen(true);
+    }
+  };
+
+  const dangerFlightsCount = liveFlights.filter(f => f.in_danger).length;
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar
         systemStatus={systemStatus}
         activeDangerCount={activeDangerZones.length}
+        liveFlightsCount={liveFlights.length}
         onReset={handleResetNetwork}
       />
 
@@ -185,7 +239,12 @@ export default function App() {
           isLoadingRoute={isLoadingRoute}
           onSimulateScenario={handleSimulateScenario}
           onOpenEmergencyModal={() => setEmergencyModalOpen(true)}
+          onOpenDecisionDeck={() => setDecisionDeckOpen(true)}
           activeScenario={activeScenario}
+          showLiveFlights={showLiveFlights}
+          setShowLiveFlights={setShowLiveFlights}
+          liveFlightsCount={liveFlights.length}
+          dangerFlightsCount={dangerFlightsCount}
         />
 
         <MapDeckView
@@ -194,7 +253,10 @@ export default function App() {
           optimalRoute={routeResult}
           activeDangerZones={activeDangerZones}
           emergencyDiversion={diversionResult}
+          liveFlights={liveFlights}
+          showLiveFlights={showLiveFlights}
           onNodeClick={handleNodeClick}
+          onFlightClick={handleFlightClick}
         />
       </div>
 
@@ -204,6 +266,13 @@ export default function App() {
         onExecuteDiversion={handleExecuteDiversion}
         diversionResult={diversionResult}
         isCalculating={isCalculatingDiversion}
+      />
+
+      <DecisionDeck
+        isOpen={decisionDeckOpen}
+        onClose={() => setDecisionDeckOpen(false)}
+        intelligenceData={intelligenceData}
+        onTriggerScenario={handleSimulateScenario}
       />
     </div>
   );

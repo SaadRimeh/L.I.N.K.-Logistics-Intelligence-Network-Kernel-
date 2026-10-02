@@ -10,6 +10,8 @@ from backend.services.graph_service import graph_service
 from backend.services.routing_engine import routing_engine
 from backend.services.collision_engine import collision_engine
 from backend.services.acled_service import acled_service
+from backend.services.opensky_service import opensky_service
+from backend.services.decision_intelligence import decision_intelligence
 from backend.models.schemas import (
     GraphResponse,
     RouteOptimizationRequest,
@@ -127,6 +129,30 @@ def compute_emergency_diversion(request: EmergencyDivertRequest):
     (e.g., Queen Alia Intl in Amman or Baghdad Intl) when an aircraft encounters a danger zone.
     """
     return collision_engine.calculate_emergency_diversion(request)
+
+@app.get("/api/flights/live")
+def get_live_flights():
+    """
+    Returns real-time flights across the Middle East from OpenSky Network API.
+    Identifies aircraft in danger zones and flags them RED with emergency diversion vectors.
+    """
+    flights = opensky_service.fetch_live_flights()
+    danger_count = sum(1 for f in flights if f.get("in_danger"))
+    return {
+        "status": "LIVE_FEED_ACTIVE",
+        "total_flights": len(flights),
+        "flights_in_danger": danger_count,
+        "flights": flights
+    }
+
+@app.get("/api/intelligence/evaluate")
+def evaluate_systemic_crisis():
+    """
+    Autonomous Decision & Trade-off Optimization Engine:
+    Evaluates costs, risks, operational delays, emergency anchorages, safe havens,
+    and secondary cascading impacts on Middle East logistics.
+    """
+    return decision_intelligence.evaluate_geopolitical_crisis()
 
 # ==============================================================================
 # Geopolitical Scenario Simulators & Network Reset

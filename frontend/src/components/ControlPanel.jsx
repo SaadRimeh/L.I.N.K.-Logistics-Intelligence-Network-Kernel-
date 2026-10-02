@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
-import {
-  Navigation,
-  Clock,
-  DollarSign,
-  ShieldAlert,
-  Truck,
-  Plane,
-  Ship,
-  Layers,
-  AlertTriangle,
-  CheckCircle2,
-  Compass,
-  RotateCcw,
+import React from 'react';
+import { 
+  Navigation, 
+  Clock, 
+  DollarSign, 
+  ShieldAlert, 
+  Truck, 
+  Plane, 
+  Ship, 
+  Layers, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Compass, 
   Sparkles,
-  Zap
+  Zap,
+  Radio,
+  BrainCircuit
 } from 'lucide-react';
 
 export default function ControlPanel({
@@ -29,10 +30,13 @@ export default function ControlPanel({
   isLoadingRoute,
   onSimulateScenario,
   onOpenEmergencyModal,
-  activeScenario
+  onOpenDecisionDeck,
+  activeScenario,
+  showLiveFlights,
+  setShowLiveFlights,
+  liveFlightsCount,
+  dangerFlightsCount
 }) {
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-
   const getNodeIcon = (type) => {
     switch (type) {
       case 'PORT': return <Ship size={14} color="#00f2fe" />;
@@ -43,21 +47,72 @@ export default function ControlPanel({
     }
   };
 
+  const getModeLabelAr = (mode) => {
+    switch (mode) {
+      case 'MARITIME': return 'نقل بحري (بواخر)';
+      case 'LAND': return 'جسر بري (شاحنات)';
+      case 'AIR': return 'ممر جوي (طيران)';
+      case 'TRANSFER': return 'تحويل متعدد الوسائط';
+      default: return mode;
+    }
+  };
+
   return (
     <aside className="glass-panel" style={{
       width: '420px',
       height: 'calc(100% - 64px)',
       position: 'absolute',
       top: '64px',
-      left: '0',
+      right: '0',
       zIndex: 900,
       display: 'flex',
       flexDirection: 'column',
       padding: '18px',
-      gap: '16px',
-      overflowY: 'auto'
+      gap: '14px',
+      overflowY: 'auto',
+      direction: 'rtl',
+      textAlign: 'right'
     }}>
-      {/* Geopolitical Threat Simulation Deck */}
+      {/* Live OpenSky Radar & AI Decision Deck Triggers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <button
+          onClick={() => setShowLiveFlights(!showLiveFlights)}
+          className={`cyber-btn ${showLiveFlights ? 'cyber-btn-primary' : ''}`}
+          style={{ padding: '8px 10px', fontSize: '0.74rem' }}
+        >
+          <Radio size={14} className={showLiveFlights ? 'radar-spinner' : ''} />
+          {showLiveFlights ? `رادار حي (${liveFlightsCount})` : 'تفعيل رادار OpenSky'}
+        </button>
+
+        <button
+          onClick={onOpenDecisionDeck}
+          className="cyber-btn"
+          style={{ padding: '8px 10px', fontSize: '0.74rem', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)' }}
+        >
+          <BrainCircuit size={14} />
+          لوحة دعم القرار والذكاء
+        </button>
+      </div>
+
+      {/* Threat Bar if Flights are in Danger */}
+      {showLiveFlights && dangerFlightsCount > 0 && (
+        <div className="glass-panel-danger pulsing-danger" style={{
+          padding: '10px 12px',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.76rem',
+          color: '#fca5a5'
+        }}>
+          <ShieldAlert size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+          <div>
+            <strong>إنذار رادار فوري:</strong> رصد {dangerFlightsCount} طائرة بالشرق الأوسط داخل دائرة نزاع! (موضحة بالأحمر الوامض على الخريطة).
+          </div>
+        </div>
+      )}
+
+      {/* لوحة محاكاة الأزمات الجيوسياسية */}
       <div style={{
         background: 'rgba(15, 23, 42, 0.85)',
         border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -75,56 +130,56 @@ export default function ControlPanel({
             alignItems: 'center',
             gap: '6px'
           }}>
-            <Zap size={15} /> GEOPOLITICAL SCENARIO ENGINE
+            <Zap size={15} /> محاكاة السيناريوهات الحيوية
           </span>
           {activeScenario && (
-            <span className="badge badge-danger pulsing-danger">ACTIVE SIMULATION</span>
+            <span className="badge badge-danger pulsing-danger">السيناريو نشط</span>
           )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Scenario 1 Button */}
+          {/* Scenario 1 */}
           <button
             onClick={() => onSimulateScenario('scenario_1_maritime_closure')}
             className={`cyber-btn ${activeScenario === 'scenario_1_maritime_closure' ? 'cyber-btn-danger pulsing-danger' : ''}`}
             style={{ justifyContent: 'flex-start', padding: '9px 12px' }}
           >
             <Ship size={16} />
-            <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
-              <div style={{ fontSize: '0.78rem' }}>1. Strait of Hormuz Closure</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Auto-divert via Saudi Land Bridge</div>
+            <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
+              <div style={{ fontSize: '0.78rem' }}>1. إغلاق مضيق هرمز</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>تحويل فوري وتفريغ بالجسر البري السعودي</div>
             </div>
           </button>
 
-          {/* Scenario 2 Button */}
+          {/* Scenario 2 */}
           <button
             onClick={() => onSimulateScenario('scenario_2_airspace_hazard')}
             className={`cyber-btn ${activeScenario === 'scenario_2_airspace_hazard' ? 'cyber-btn-danger pulsing-danger' : ''}`}
             style={{ justifyContent: 'flex-start', padding: '9px 12px' }}
           >
             <Plane size={16} />
-            <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
-              <div style={{ fontSize: '0.78rem' }}>2. Airspace Interdiction (Iran/Syria)</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Shapely Collision + Safe Haven Divert</div>
+            <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
+              <div style={{ fontSize: '0.78rem' }}>2. حظر الأجواء المفاجئ (إيران/سوريا)</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>اكتشاف تصادم مكاني وهبوط بمطار عمّان/بغداد</div>
             </div>
           </button>
 
-          {/* Scenario 3 Button */}
+          {/* Scenario 3 */}
           <button
             onClick={() => onSimulateScenario('scenario_3_turkish_lifeline')}
             className={`cyber-btn ${activeScenario === 'scenario_3_turkish_lifeline' ? 'cyber-btn-danger pulsing-danger' : ''}`}
             style={{ justifyContent: 'flex-start', padding: '9px 12px' }}
           >
             <Truck size={16} />
-            <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
-              <div style={{ fontSize: '0.78rem' }}>3. Turkish Lifeline Corridor</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Mersin Port Gateway - Zakho - Gulf</div>
+            <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
+              <div style={{ fontSize: '0.78rem' }}>3. الجسر المنقذ (ميناء مرسين التركي)</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>تفعيل ممر مرسين ➔ معبر زاخو ➔ الخليج</div>
             </div>
           </button>
         </div>
       </div>
 
-      {/* Autonomous Route Dispatcher Panel */}
+      {/* لوحة التحكم بالتوجيه واختيار المسارات */}
       <div style={{
         background: 'rgba(15, 23, 42, 0.85)',
         border: '1px solid var(--border-glow)',
@@ -141,13 +196,13 @@ export default function ControlPanel({
           alignItems: 'center',
           gap: '6px'
         }}>
-          <Compass size={16} /> MULTI-MODAL ROUTE DISPATCHER
+          <Compass size={16} /> محرك التوجيه متعدد الوسائط
         </div>
 
-        {/* Origin Selector */}
+        {/* نقطة الانطلاق */}
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-            ORIGIN DISPATCH POINT:
+          <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+            نقطة انطلاق الشحنة / الرحلة:
           </label>
           <select
             value={origin}
@@ -160,21 +215,21 @@ export default function ControlPanel({
               border: '1px solid rgba(56, 189, 248, 0.3)',
               color: 'var(--text-primary)',
               fontFamily: 'var(--font-sans)',
-              fontSize: '0.85rem'
+              fontSize: '0.82rem'
             }}
           >
             {nodes.map(n => (
               <option key={n.id} value={n.id}>
-                [{n.type}] {n.name_ar || n.name} ({n.country})
+                {n.name_ar || n.name} ({n.country}) - [{n.type}]
               </option>
             ))}
           </select>
         </div>
 
-        {/* Destination Selector */}
+        {/* نقطة الوصول */}
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-            DESTINATION GATEWAY:
+          <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+            بوابة الوصول والوجهة النهائية:
           </label>
           <select
             value={destination}
@@ -187,28 +242,28 @@ export default function ControlPanel({
               border: '1px solid rgba(56, 189, 248, 0.3)',
               color: 'var(--text-primary)',
               fontFamily: 'var(--font-sans)',
-              fontSize: '0.85rem'
+              fontSize: '0.82rem'
             }}
           >
             {nodes.map(n => (
               <option key={n.id} value={n.id}>
-                [{n.type}] {n.name_ar || n.name} ({n.country})
+                {n.name_ar || n.name} ({n.country}) - [{n.type}]
               </option>
             ))}
           </select>
         </div>
 
-        {/* Priority Balancing Filter */}
+        {/* أولوية التحسين */}
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-            OPTIMIZATION OBJECTIVE:
+          <label style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+            معيار تحسين المسار والذكاء:
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
             {[
-              { id: 'balanced', label: 'Balanced', icon: <Layers size={13} /> },
-              { id: 'time', label: 'Fastest', icon: <Clock size={13} /> },
-              { id: 'cost', label: 'Lowest Cost', icon: <DollarSign size={13} /> },
-              { id: 'risk', label: 'Max Safety', icon: <ShieldAlert size={13} /> }
+              { id: 'balanced', label: 'متوازن', icon: <Layers size={13} /> },
+              { id: 'time', label: 'الأسرع زمناً', icon: <Clock size={13} /> },
+              { id: 'cost', label: 'الأقل تكلفة', icon: <DollarSign size={13} /> },
+              { id: 'risk', label: 'تجنب المخاطر', icon: <ShieldAlert size={13} /> }
             ].map(p => (
               <button
                 key={p.id}
@@ -216,7 +271,7 @@ export default function ControlPanel({
                 className="cyber-btn"
                 style={{
                   padding: '6px 8px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.72rem',
                   background: priority === p.id ? 'rgba(0, 242, 254, 0.25)' : 'rgba(30, 41, 59, 0.6)',
                   borderColor: priority === p.id ? 'var(--accent-cyan)' : 'var(--border-subtle)',
                   color: priority === p.id ? 'var(--accent-cyan)' : 'var(--text-secondary)'
@@ -228,26 +283,26 @@ export default function ControlPanel({
           </div>
         </div>
 
-        {/* Calculate Button */}
+        {/* زر حساب المسار */}
         <button
           onClick={onCalculateRoute}
           disabled={isLoadingRoute}
           className="cyber-btn cyber-btn-primary"
-          style={{ width: '100%', padding: '11px', fontSize: '0.88rem' }}
+          style={{ width: '100%', padding: '11px', fontSize: '0.86rem' }}
         >
           {isLoadingRoute ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div className="radar-spinner" style={{ width: '14px', height: '14px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%' }} />
-              COMPUTING RESILIENT ROUTE...
+              جاري حساب المسار الأمثل المقاوم للمخاطر...
             </span>
           ) : (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={16} /> CALCULATE OPTIMAL PATH
+              <Sparkles size={16} /> توليد المسار البديل الآمن
             </span>
           )}
         </button>
 
-        {/* Emergency Flight Diversion Button */}
+        {/* زر محاكاة الهبوط الاضطراري للطائرة */}
         <button
           onClick={onOpenEmergencyModal}
           className="cyber-btn"
@@ -258,11 +313,11 @@ export default function ControlPanel({
             color: '#f87171'
           }}
         >
-          <Plane size={15} /> SIMULATE IN-FLIGHT EMERGENCY DIVERT
+          <Plane size={15} /> محاكاة هبوط اضطراري لطائرة بالجو
         </button>
       </div>
 
-      {/* Route Details Card */}
+      {/* بطاقة تفاصيل المسار والنتائج */}
       {routeResult && routeResult.success && (
         <div style={{
           background: 'rgba(15, 23, 42, 0.9)',
@@ -281,16 +336,16 @@ export default function ControlPanel({
               alignItems: 'center',
               gap: '6px'
             }}>
-              <CheckCircle2 size={16} /> ROUTE COMPUTED
+              <CheckCircle2 size={16} /> المسار المعتمد بالشبكة
             </span>
             {routeResult.is_multimodal ? (
-              <span className="badge badge-amber">MULTI-MODAL</span>
+              <span className="badge badge-amber">متعدد الوسائط (Multi-Modal)</span>
             ) : (
-              <span className="badge badge-cyan">{routeResult.modes_used[0]}</span>
+              <span className="badge badge-cyan">{getModeLabelAr(routeResult.modes_used[0])}</span>
             )}
           </div>
 
-          {/* Contingency Notification Banner */}
+          {/* تنبيه التوجيه التكتيكي */}
           {routeResult.contingency_applied && (
             <div style={{
               background: 'rgba(245, 158, 11, 0.15)',
@@ -298,45 +353,45 @@ export default function ControlPanel({
               borderRadius: '6px',
               padding: '8px 10px',
               marginBottom: '12px',
-              fontSize: '0.76rem',
+              fontSize: '0.74rem',
               color: '#fde047',
-              lineHeight: 1.3
+              lineHeight: 1.4
             }}>
-              <strong>⚡ TACTICAL DIVERSION:</strong> {routeResult.contingency_applied}
+              <strong>⚡ توجيه استباقي:</strong> {routeResult.contingency_applied}
             </div>
           )}
 
-          {/* Metric Badges */}
+          {/* بطاقات المؤشرات الرقمية */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
             <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '8px', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>DISTANCE</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>المسافة الكلية</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                {routeResult.total_distance_km} km
+                {routeResult.total_distance_km} كم
               </div>
             </div>
             <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '8px', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>TRANSIT TIME</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>زمن العبور التقديري</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-blue)' }}>
-                {routeResult.total_time_hours} hrs
+                {routeResult.total_time_hours} ساعة
               </div>
             </div>
             <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '8px', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>ESTIMATED COST</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>التكلفة التقديرية</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-emerald)' }}>
                 ${routeResult.total_cost_usd}
               </div>
             </div>
             <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '8px', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>RISK FACTOR</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>مؤشر الأمان والخطورة</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: routeResult.aggregate_risk > 0.1 ? '#ef4444' : '#10b981' }}>
-                {routeResult.aggregate_risk}
+                {routeResult.aggregate_risk} (آمن)
               </div>
             </div>
           </div>
 
-          {/* Waypoints Flow */}
+          {/* تسلسل محطات العبور والتفريغ */}
           <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-            <div style={{ fontWeight: 600, marginBottom: '6px' }}>WAYPOINT SEQUENCE:</div>
+            <div style={{ fontWeight: 600, marginBottom: '6px' }}>تسلسل محطات العبور (Waypoints):</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {routeResult.segments.map((seg, idx) => (
                 <div key={idx} style={{
@@ -346,7 +401,7 @@ export default function ControlPanel({
                   background: 'rgba(15, 23, 42, 0.6)',
                   padding: '6px 8px',
                   borderRadius: '4px',
-                  fontSize: '0.75rem'
+                  fontSize: '0.74rem'
                 }}>
                   {getNodeIcon(seg.mode === 'MARITIME' ? 'PORT' : seg.mode === 'AIR' ? 'AIRPORT' : 'LOGISTICS_HUB')}
                   <div style={{ flex: 1 }}>
@@ -354,7 +409,7 @@ export default function ControlPanel({
                     <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
                     <span style={{ color: 'var(--accent-cyan)' }}>{seg.target_name}</span>
                   </div>
-                  <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{seg.mode}</span>
+                  <span className="badge badge-cyan" style={{ fontSize: '0.64rem' }}>{getModeLabelAr(seg.mode)}</span>
                 </div>
               ))}
             </div>
