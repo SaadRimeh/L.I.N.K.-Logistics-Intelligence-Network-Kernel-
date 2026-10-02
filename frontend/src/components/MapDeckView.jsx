@@ -2,33 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// 100% Resilient Self-Contained Dark Raster Map Style (Never fails, zero token, no external JSON)
-const BULLETPROOF_DARK_STYLE = {
-  version: 8,
-  sources: {
-    'carto-dark-matter': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256
-    }
-  },
-  layers: [
-    {
-      id: 'carto-dark-layer',
-      type: 'raster',
-      source: 'carto-dark-matter',
-      minzoom: 0,
-      maxzoom: 22
-    }
-  ]
-};
+// Read Mapbox access token securely from environment variable
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-// توليد إحداثيات مقوسة للمسارات ثلاثية الأبعاد
+// Official Mapbox Dark Vector Style with 3D terrain & global infrastructure
+const MAPBOX_DARK_STYLE = 'mapbox://styles/mapbox/dark-v11';
+
+// Quadratic Bezier Arc coordinates generator for 3D curved corridors
 function generateCurvedArc(lon1, lat1, lon2, lat2, numPoints = 40, curvature = 0.22) {
   const points = [];
   const midLon = (lon1 + lon2) / 2.0;
@@ -66,17 +46,18 @@ export default function MapDeckView({
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const animFrameRef = useRef(null);
+  const markersRef = useRef([]);
 
-  // تهيئة الخريطة وضمان استقرار العرض
+  // Initialize Mapbox GL instance with resize triggers
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: BULLETPROOF_DARK_STYLE,
+      style: MAPBOX_DARK_STYLE,
       center: [45.0, 26.5],
       zoom: 4.8,
-      pitch: 45,
+      pitch: 42,
       bearing: -6,
       attributionControl: false
     });
@@ -89,47 +70,42 @@ export default function MapDeckView({
       map.resize();
     });
 
-    // Handle container resize
+    map.on('style.load', () => {
+      map.resize();
+    });
+
+    map.on('error', (e) => {
+      console.warn('Mapbox GL event:', e?.error?.message || e);
+    });
+
+    // Resize triggers to guarantee canvas fits parent container on all screens
+    const t1 = setTimeout(() => map.resize(), 100);
+    const t2 = setTimeout(() => map.resize(), 400);
+    const t3 = setTimeout(() => map.resize(), 1000);
+
     const handleResize = () => map.resize();
     window.addEventListener('resize', handleResize);
 
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
       window.removeEventListener('resize', handleResize);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       map.remove();
     };
   }, []);
 
-  // تحديث الطبقات والبيانات الجيومكانية والنبضات الحمراء
+  // Update GeoJSON layers and live HTML markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
 
-    // 1. العقد اللوجستية (الموانئ والمطارات والمراكز)
-    const nodesGeoJson = {
-      type: 'FeatureCollection',
-      features: nodes.map(n => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [n.lon, n.lat] },
-        properties: {
-          id: n.id,
-          name_ar: n.name_ar || n.name,
-          country: n.country,
-          type: n.type,
-          iata: n.iata || '',
-          safe_haven: n.safe_haven ? 'نعم' : 'لا',
-          status: n.status,
-          color: n.status === 'CLOSED' ? '#ef4444' :
-                 n.safe_haven ? '#10b981' :
-                 n.type === 'CHOKEPOINT' ? '#f43f5e' :
-                 n.type === 'PORT' ? '#00f2fe' :
-                 n.type === 'AIRPORT' ? '#38bdf8' : '#f59e0b',
-          radius: n.type === 'CHOKEPOINT' || n.safe_haven ? 9 : 7
-        }
-      }))
-    };
+    // Clear previous live markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
 
-    // 2. الممرات اللوجستية (المسارات المفتوحة vs المغلقة vs المسار الأمثل)
+    // --- 1. Lines GeoJSON (Open, Closed, and Optimal Route) ---
     const optimalEdgeKeys = new Set(
       optimalRoute?.segments ? optimalRoute.segments.map(s => `${s.source_id}->${s.target_id}`) : []
     );
@@ -145,7 +121,7 @@ export default function MapDeckView({
 
       const isCurved = e.mode === 'AIR' || e.mode === 'MARITIME';
       const coordinates = isCurved ?
-        generateCurvedArc(s.lon, s.lat, t.lon, t.lat, 40, e.mode === 'AIR' ? 0.28 : 0.15) :
+        generateCurvedArc(s.lon, s.lat, t.lon, t.lat, 35, e.mode === 'AIR' ? 0.26 : 0.14) :
         [[s.lon, s.lat], [t.lon, t.lat]];
 
       const feat = {
@@ -170,7 +146,7 @@ export default function MapDeckView({
       }
     });
 
-    // 3. مناطق النزاع والخطر (ACLED Hazard Polygons)
+    // --- 2. ACLED Hazard Zones GeoJSON ---
     const hazardFeatures = (activeDangerZones || []).map(dz => ({
       type: 'Feature',
       geometry: dz.polygon,
@@ -182,60 +158,33 @@ export default function MapDeckView({
       }
     }));
 
-    // 4. طائرات رادار OpenSky اللحظية
-    const safeFlightFeatures = [];
-    const dangerFlightFeatures = [];
+    // --- 3. Emergency Flight Diversion Vectors (OpenSky threatened planes) ---
     const dangerDivertVectors = [];
-
     if (showLiveFlights && liveFlights && liveFlights.length > 0) {
       liveFlights.forEach(f => {
-        const feat = {
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
-          properties: {
-            callsign: f.callsign,
-            country: f.country,
-            altitude_ft: f.altitude_ft,
-            speed_kmh: f.speed_kmh,
-            heading_deg: f.heading_deg,
-            in_danger: f.in_danger,
-            threat_desc: f.threat_description || '',
-            safe_haven_name: f.safe_haven?.name_ar || ''
-          }
-        };
-
-        if (f.in_danger) {
-          dangerFlightFeatures.push(feat);
-          if (f.safe_haven?.vector_coordinates) {
-            dangerDivertVectors.push({
-              type: 'Feature',
-              geometry: {
-                type: 'LineString',
-                coordinates: generateCurvedArc(
-                  f.safe_haven.vector_coordinates[0][0],
-                  f.safe_haven.vector_coordinates[0][1],
-                  f.safe_haven.vector_coordinates[1][0],
-                  f.safe_haven.vector_coordinates[1][1],
-                  30,
-                  -0.2
-                )
-              },
-              properties: {
-                callsign: f.callsign,
-                directive: f.safe_haven.directive_ar
-              }
-            });
-          }
-        } else {
-          safeFlightFeatures.push(feat);
+        if (f.in_danger && f.safe_haven?.vector_coordinates) {
+          dangerDivertVectors.push({
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: generateCurvedArc(
+                f.safe_haven.vector_coordinates[0][0],
+                f.safe_haven.vector_coordinates[0][1],
+                f.safe_haven.vector_coordinates[1][0],
+                f.safe_haven.vector_coordinates[1][1],
+                30,
+                -0.22
+              )
+            },
+            properties: { callsign: f.callsign }
+          });
         }
       });
     }
 
-    // 5. ناقل الهروب الفردي التفاعلي (Scenario 2 Emergency Diversion)
-    const singleDivertFeatures = [];
-    if (emergencyDiversion && emergencyDiversion.flight_vector_coordinates) {
-      singleDivertFeatures.push({
+    // Single simulated aircraft divert vector
+    if (emergencyDiversion?.flight_vector_coordinates) {
+      dangerDivertVectors.push({
         type: 'Feature',
         geometry: {
           type: 'LineString',
@@ -244,18 +193,15 @@ export default function MapDeckView({
             emergencyDiversion.flight_vector_coordinates[0][1],
             emergencyDiversion.flight_vector_coordinates[1][0],
             emergencyDiversion.flight_vector_coordinates[1][1],
-            35,
+            30,
             -0.2
           )
         },
-        properties: {
-          callsign: emergencyDiversion.flight_callsign,
-          directive: emergencyDiversion.action_directive
-        }
+        properties: { callsign: emergencyDiversion.flight_callsign }
       });
     }
 
-    // دالة تحديث المصادر
+    // Safely update or add GeoJSON sources
     const updateSource = (id, data) => {
       const src = map.getSource(id);
       if (src) {
@@ -269,42 +215,36 @@ export default function MapDeckView({
     updateSource('src-open-routes', { type: 'FeatureCollection', features: openRoutesFeatures });
     updateSource('src-closed-routes', { type: 'FeatureCollection', features: closedRoutesFeatures });
     updateSource('src-optimal-route', { type: 'FeatureCollection', features: optimalRouteFeatures });
-    updateSource('src-single-divert', { type: 'FeatureCollection', features: singleDivertFeatures });
-    updateSource('src-safe-flights', { type: 'FeatureCollection', features: safeFlightFeatures });
-    updateSource('src-danger-flights', { type: 'FeatureCollection', features: dangerFlightFeatures });
     updateSource('src-danger-vectors', { type: 'FeatureCollection', features: dangerDivertVectors });
-    updateSource('src-nodes', nodesGeoJson);
 
-    // إضافة الطبقات للمرة الأولى
+    // Add Visual Layers if not present
     if (!map.getLayer('layer-hazard-fill')) {
-      // طبقة مضلعات الخطر
       map.addLayer({
         id: 'layer-hazard-fill',
         type: 'fill',
         source: 'src-hazards',
-        paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.22 }
+        paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.25 }
       });
       map.addLayer({
         id: 'layer-hazard-stroke',
         type: 'line',
         source: 'src-hazards',
-        paint: { 'line-color': '#ff2a5f', 'line-width': 3, 'line-dasharray': [2, 2] }
+        paint: { 'line-color': '#ff2a5f', 'line-width': 2.8, 'line-dasharray': [2, 2] }
       });
 
-      // المسارات الطبيعية
       map.addLayer({
         id: 'layer-open-routes',
         type: 'line',
         source: 'src-open-routes',
-        paint: { 'line-color': ['get', 'color'], 'line-width': 2.4, 'line-opacity': 0.75 }
+        paint: { 'line-color': ['get', 'color'], 'line-width': 2.2, 'line-opacity': 0.7 }
       });
 
-      // المسارات المغلقة: توهج أحمر نابض
+      // Closed routes: Flashing Red Neon Glow
       map.addLayer({
         id: 'layer-closed-routes-glow',
         type: 'line',
         source: 'src-closed-routes',
-        paint: { 'line-color': '#ff2a5f', 'line-width': 7, 'line-blur': 4, 'line-opacity': 0.9 }
+        paint: { 'line-color': '#ff2a5f', 'line-width': 7, 'line-blur': 4, 'line-opacity': 0.85 }
       });
       map.addLayer({
         id: 'layer-closed-routes-core',
@@ -313,7 +253,7 @@ export default function MapDeckView({
         paint: { 'line-color': '#ffffff', 'line-width': 2.2, 'line-opacity': 0.95 }
       });
 
-      // المسار الأمثل الأخضر الزمردي
+      // Optimal Route: Glowing Emerald
       map.addLayer({
         id: 'layer-optimal-glow',
         type: 'line',
@@ -327,151 +267,132 @@ export default function MapDeckView({
         paint: { 'line-color': '#34d399', 'line-width': 3.5, 'line-opacity': 1.0 }
       });
 
-      // متجهات الهبوط الاضطراري للطائرات المهددة
+      // Emergency Escape Vectors
       map.addLayer({
         id: 'layer-danger-vectors',
         type: 'line',
         source: 'src-danger-vectors',
         paint: { 'line-color': '#ff2a5f', 'line-width': 3.5, 'line-dasharray': [3, 2] }
       });
-      map.addLayer({
-        id: 'layer-single-divert',
-        type: 'line',
-        source: 'src-single-divert',
-        paint: { 'line-color': '#f43f5e', 'line-width': 5, 'line-dasharray': [3, 2] }
-      });
-
-      // طائرات آمنة (Sky Blue)
-      map.addLayer({
-        id: 'layer-safe-flights',
-        type: 'circle',
-        source: 'src-safe-flights',
-        paint: {
-          'circle-radius': 4.5,
-          'circle-color': '#38bdf8',
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1.2
-        }
-      });
-
-      // طائرات في منطقة خطر (FLASHING NEON RED)
-      map.addLayer({
-        id: 'layer-danger-flights-glow',
-        type: 'circle',
-        source: 'src-danger-flights',
-        paint: {
-          'circle-radius': 13,
-          'circle-color': '#ff2a5f',
-          'circle-opacity': 0.45,
-          'circle-blur': 0.8
-        }
-      });
-      map.addLayer({
-        id: 'layer-danger-flights-core',
-        type: 'circle',
-        source: 'src-danger-flights',
-        paint: {
-          'circle-radius': 6.5,
-          'circle-color': '#ff2a5f',
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 2
-        }
-      });
-
-      // كتابة اسم نداء الطائرة المهددة
-      map.addLayer({
-        id: 'layer-danger-flights-label',
-        type: 'symbol',
-        source: 'src-danger-flights',
-        layout: {
-          'text-field': ['concat', '⚠️ ', ['get', 'callsign']],
-          'text-size': 11,
-          'text-offset': [0, -1.5],
-          'text-anchor': 'bottom'
-        },
-        paint: {
-          'text-color': '#fca5a5',
-          'text-halo-color': '#450a0a',
-          'text-halo-width': 2.5
-        }
-      });
-
-      // العقد اللوجستية والموانئ
-      map.addLayer({
-        id: 'layer-nodes-halo',
-        type: 'circle',
-        source: 'src-nodes',
-        paint: {
-          'circle-radius': ['+', ['get', 'radius'], 5],
-          'circle-color': ['get', 'color'],
-          'circle-opacity': 0.25,
-          'circle-blur': 0.8
-        }
-      });
-      map.addLayer({
-        id: 'layer-nodes-core',
-        type: 'circle',
-        source: 'src-nodes',
-        paint: {
-          'circle-radius': ['get', 'radius'],
-          'circle-color': ['get', 'color'],
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1.8
-        }
-      });
-      map.addLayer({
-        id: 'layer-nodes-label',
-        type: 'symbol',
-        source: 'src-nodes',
-        layout: {
-          'text-field': ['get', 'name_ar'],
-          'text-size': 11,
-          'text-offset': [0, 1.4],
-          'text-anchor': 'top'
-        },
-        paint: {
-          'text-color': '#f8fafc',
-          'text-halo-color': '#090d16',
-          'text-halo-width': 2.5
-        }
-      });
-
-      // النقر على العقد
-      map.on('click', 'layer-nodes-core', (e) => {
-        if (e.features && e.features[0] && onNodeClick) {
-          const props = e.features[0].properties;
-          onNodeClick({ id: props.id, name_ar: props.name_ar, type: props.type });
-        }
-      });
-
-      // النقر على الطائرة المهددة
-      map.on('click', 'layer-danger-flights-core', (e) => {
-        if (e.features && e.features[0] && onFlightClick) {
-          onFlightClick(e.features[0].properties);
-        }
-      });
-
-      map.on('mouseenter', 'layer-nodes-core', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'layer-nodes-core', () => { map.getCanvas().style.cursor = ''; });
-      map.on('mouseenter', 'layer-danger-flights-core', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'layer-danger-flights-core', () => { map.getCanvas().style.cursor = ''; });
     }
 
-    // حلقة النبض الأحمر الديناميكية للخطوط المغلقة والطائرات المهددة
+    // --- 4. Render Strategic Nodes as Interactive HTML Markers ---
+    nodes.forEach(node => {
+      const el = document.createElement('div');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.alignItems = 'center';
+      el.style.cursor = 'pointer';
+      el.style.zIndex = '50';
+
+      const dot = document.createElement('div');
+      const isClosed = node.status === 'CLOSED';
+      const color = isClosed ? '#ef4444' :
+                    node.safe_haven ? '#10b981' :
+                    node.type === 'CHOKEPOINT' ? '#f43f5e' :
+                    node.type === 'PORT' ? '#00f2fe' :
+                    node.type === 'AIRPORT' ? '#38bdf8' : '#f59e0b';
+
+      dot.style.width = node.type === 'CHOKEPOINT' || node.safe_haven ? '15px' : '12px';
+      dot.style.height = node.type === 'CHOKEPOINT' || node.safe_haven ? '15px' : '12px';
+      dot.style.borderRadius = '50%';
+      dot.style.backgroundColor = color;
+      dot.style.border = '2px solid #ffffff';
+      dot.style.boxShadow = `0 0 10px ${color}`;
+
+      if (isClosed || node.type === 'CHOKEPOINT') {
+        dot.className = 'pulsing-danger';
+      }
+
+      const label = document.createElement('div');
+      label.innerText = node.name_ar || node.name;
+      label.style.fontSize = '10px';
+      label.style.fontFamily = 'Chakra Petch, sans-serif';
+      label.style.color = '#f8fafc';
+      label.style.background = 'rgba(10, 15, 29, 0.85)';
+      label.style.padding = '2px 5px';
+      label.style.borderRadius = '4px';
+      label.style.marginTop = '3px';
+      label.style.whiteSpace = 'nowrap';
+      label.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+
+      el.appendChild(dot);
+      el.appendChild(label);
+
+      el.addEventListener('click', () => {
+        if (onNodeClick) onNodeClick(node);
+      });
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([node.lon, node.lat])
+        .addTo(map);
+
+      markersRef.current.push(marker);
+    });
+
+    // --- 5. Render Live OpenSky Flights as HTML Radar Icons ---
+    if (showLiveFlights && liveFlights && liveFlights.length > 0) {
+      liveFlights.forEach(f => {
+        const fEl = document.createElement('div');
+        fEl.style.display = 'flex';
+        fEl.style.flexDirection = 'column';
+        fEl.style.alignItems = 'center';
+        fEl.style.cursor = 'pointer';
+        fEl.style.zIndex = f.in_danger ? '90' : '40';
+
+        const planeIcon = document.createElement('div');
+        const planeColor = f.in_danger ? '#ff2a5f' : '#38bdf8';
+        planeIcon.style.width = f.in_danger ? '16px' : '10px';
+        planeIcon.style.height = f.in_danger ? '16px' : '10px';
+        planeIcon.style.borderRadius = '50%';
+        planeIcon.style.backgroundColor = planeColor;
+        planeIcon.style.border = '1.5px solid #ffffff';
+        planeIcon.style.boxShadow = `0 0 12px ${planeColor}`;
+
+        if (f.in_danger) {
+          planeIcon.className = 'pulsing-danger';
+        }
+
+        fEl.appendChild(planeIcon);
+
+        // Show callsign tag on threatened aircraft
+        if (f.in_danger) {
+          const callTag = document.createElement('div');
+          callTag.innerText = `⚠️ ${f.callsign}`;
+          callTag.style.fontSize = '9px';
+          callTag.style.fontWeight = '700';
+          callTag.style.color = '#fca5a5';
+          callTag.style.background = 'rgba(69, 10, 10, 0.9)';
+          callTag.style.border = '1px solid #ef4444';
+          callTag.style.padding = '1px 4px';
+          callTag.style.borderRadius = '3px';
+          callTag.style.marginTop = '2px';
+          callTag.style.whiteSpace = 'nowrap';
+          fEl.appendChild(callTag);
+        }
+
+        fEl.addEventListener('click', () => {
+          if (onFlightClick) onFlightClick(f);
+        });
+
+        const flightMarker = new mapboxgl.Marker({ element: fEl })
+          .setLngLat([f.lon, f.lat])
+          .addTo(map);
+
+        markersRef.current.push(flightMarker);
+      });
+    }
+
+    // Dynamic Flashing Red pulse loop
     let pulseStep = 0;
     const animatePulse = () => {
       pulseStep = (pulseStep + 0.08) % (Math.PI * 2);
       const glowOpacity = 0.4 + Math.sin(pulseStep) * 0.4;
       const strokeWidth = 5.5 + Math.sin(pulseStep) * 2.5;
-      const flightHaloRadius = 12 + Math.sin(pulseStep) * 4;
 
       if (map.getLayer('layer-closed-routes-glow')) {
         map.setPaintProperty('layer-closed-routes-glow', 'line-opacity', glowOpacity);
         map.setPaintProperty('layer-closed-routes-glow', 'line-width', strokeWidth);
-      }
-      if (map.getLayer('layer-danger-flights-glow')) {
-        map.setPaintProperty('layer-danger-flights-glow', 'circle-radius', flightHaloRadius);
-        map.setPaintProperty('layer-danger-flights-glow', 'circle-opacity', glowOpacity);
       }
       animFrameRef.current = requestAnimationFrame(animatePulse);
     };
@@ -483,10 +404,10 @@ export default function MapDeckView({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100% - 64px)', direction: 'rtl' }}>
-      {/* خريطة Mapbox المقاومة للأعطال */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+      {/* Mapbox Container */}
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '500px' }} />
 
-      {/* دليل الرادار الاستراتيجي (عربي بالكامل) */}
+      {/* Cybernetic Legend Overlay */}
       <div className="glass-panel" style={{
         position: 'absolute',
         bottom: '24px',
