@@ -10,18 +10,18 @@ The logistics network is modeled as a property graph in **Neo4j**, capturing nod
 
 ```mermaid
 graph LR
-    subgraph Nodes
-        PORT((:Location:Port<br/>e.g. PORT_DAMMAM))
-        AIRPORT((:Location:Airport<br/>e.g. AIRPORT_DXB))
-        HUB((:Location:LogisticsHub<br/>e.g. HUB_RIYADH))
-        CHOKE((:Location:Chokepoint<br/>e.g. CHOKE_HORMUZ))
+    subgraph NODES["Graph Location Nodes"]
+        PORT["Port Node<br/>e.g. PORT_DAMMAM"]
+        AIRPORT["Airport Node<br/>e.g. AIRPORT_DXB"]
+        HUB["Logistics Hub Node<br/>e.g. HUB_RIYADH"]
+        CHOKE["Chokepoint Node<br/>e.g. CHOKE_HORMUZ"]
     end
 
-    PORT -- ":MARITIME_CORRIDOR" --> CHOKE
-    PORT -- ":TRANSFER_LINK" --> HUB
-    HUB -- ":LAND_ROUTE" --> PORT
-    AIRPORT -- ":AIR_CORRIDOR" --> AIRPORT
-    CHOKE -- ":MARITIME_CORRIDOR" --> PORT
+    PORT -->|MARITIME_CORRIDOR| CHOKE
+    PORT -->|TRANSFER_LINK| HUB
+    HUB -->|LAND_ROUTE| PORT
+    AIRPORT -->|AIR_CORRIDOR| AIRPORT
+    CHOKE -->|MARITIME_CORRIDOR| PORT
 ```
 
 ---

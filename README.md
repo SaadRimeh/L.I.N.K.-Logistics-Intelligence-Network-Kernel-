@@ -22,28 +22,28 @@ The system continuously models multi-modal supply chains—encompassing commerci
 
 ```mermaid
 graph TD
-    subgraph Data Feeds & External Intelligence
-        OPENSKY[OpenSky Network API<br/>Real-time Middle East ADS-B Telemetry]
-        AIS[Live Maritime AIS Feed<br/>Tankers, VLCCs & Cargo Vessels]
-        ACLED[ACLED Conflict Hazards<br/>Geopolitical Hazard Polygons]
-        ENERGY_SRC[Energy Infrastructure Feed<br/>Ras Tanura, Yanbu, Jizan, Mina Al-Ahmadi]
+    subgraph FEEDS["Data Feeds and External Intelligence"]
+        OPENSKY["OpenSky Network API<br/>Real-time Middle East ADS-B Telemetry"]
+        AIS["Live Maritime AIS Feed<br/>Tankers, VLCCs and Cargo Vessels"]
+        ACLED["ACLED Conflict Hazards<br/>Geopolitical Hazard Polygons"]
+        ENERGY_SRC["Energy Infrastructure Feed<br/>Ras Tanura, Yanbu, Jizan, Mina Al-Ahmadi"]
     end
 
-    subgraph Backend Core (FastAPI & Graph Engine)
-        API[FastAPI Core Server :8000]
-        GRAPH[Graph Service & NetworkX Engine<br/>Multi-Modal Cost & Dijkstra Optimization]
-        COLLISION[Shapely Geospatial Collision Engine<br/>Polygon-LineString Interdiction & Vector Divert]
-        DECISION[Decision Intelligence Evaluator<br/>Autonomous Risk Scenarios & Recommendations]
-        ENERGY_KERNEL[Energy Intelligence & Kinetic Strike Engine<br/>Vulnerability Scoring & Evacuation Radius]
-        NEO4J[(Neo4j AuraDB Graph Twin<br/>Ports, Hubs, Chokepoints, Corridors)]
+    subgraph BACKEND["Backend Core - FastAPI and Graph Engine"]
+        API["FastAPI Core Server :8000"]
+        GRAPH["Graph Service and NetworkX Engine<br/>Multi-Modal Cost and Dijkstra Optimization"]
+        COLLISION["Shapely Geospatial Collision Engine<br/>Polygon-LineString Interdiction and Vector Divert"]
+        DECISION["Decision Intelligence Evaluator<br/>Autonomous Risk Scenarios and Recommendations"]
+        ENERGY_KERNEL["Energy Intelligence and Kinetic Strike Engine<br/>Vulnerability Scoring and Evacuation Radius"]
+        NEO4J[("Neo4j AuraDB Graph Twin<br/>Ports, Hubs, Chokepoints, Corridors")]
     end
 
-    subgraph Tactical Frontend (Vite + React 18)
-        MAP[Mapbox GL Dark-v11 3D Canvas<br/>Dashed Arcs, Blast Zones, Flight Vectors]
-        HUD[Live 360° Tactical Radar HUD<br/>Air & Naval Target Tracking & Sweeper]
-        ENERGY_DECK[Energy & Infrastructure Intelligence Deck<br/>Simulated Kinetic Strikes & Strategic Reserves]
-        CTRL[Operational Domain Control Panel<br/>Maritime, Air, Defense, Land, Energy, Unified]
-        DOSSIER[Telemetry Dossier Drawer<br/>Real-time Squawk, Speed, Safe Haven Guidance]
+    subgraph FRONTEND["Tactical Frontend - Vite and React 18"]
+        MAP["Mapbox GL Dark-v11 3D Canvas<br/>Dashed Arcs, Blast Zones, Flight Vectors"]
+        HUD["Live 360 Tactical Radar HUD<br/>Air and Naval Target Tracking and Sweeper"]
+        ENERGY_DECK["Energy and Infrastructure Intelligence Deck<br/>Simulated Kinetic Strikes and Strategic Reserves"]
+        CTRL["Operational Domain Control Panel<br/>Maritime, Air, Defense, Land, Energy, Unified"]
+        DOSSIER["Telemetry Dossier Drawer<br/>Real-time Squawk, Speed, Safe Haven Guidance"]
     end
 
     OPENSKY --> API
