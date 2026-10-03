@@ -1,7 +1,15 @@
 import React from 'react';
-import { Activity, ShieldAlert, Database, Cpu, Navigation } from 'lucide-react';
+import { Activity, ShieldAlert, Database, Cpu, Navigation, Ship, Radio } from 'lucide-react';
 
-export default function Navbar({ systemStatus, activeDangerCount, liveFlightsCount, onReset }) {
+export default function Navbar({ 
+  systemStatus, 
+  activeDangerCount, 
+  liveFlightsCount, 
+  liveVesselsCount = 0, 
+  onReset,
+  onToggleRadar,
+  radarOpen
+}) {
   return (
     <header className="glass-panel" style={{
       padding: '12px 24px',
@@ -53,32 +61,41 @@ export default function Navbar({ systemStatus, activeDangerCount, liveFlightsCou
         </div>
       </div>
 
-      {/* مؤشرات القياس عن بعد الآنية (Live Telemetry) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div className="badge badge-emerald" style={{ padding: '6px 12px' }}>
-          <Database size={13} />
-          <span>قاعدة NEO4J: {systemStatus.neo4j ? 'متصل سحابياً' : 'توأم محلي'}</span>
+      {/* مؤشرات القياس عن بعد الآنية وزر تشغيل الرادار */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={onToggleRadar}
+          className={`cyber-btn ${radarOpen ? 'cyber-btn-primary pulsing-danger' : ''}`}
+          style={{
+            padding: '7px 12px',
+            fontSize: '0.76rem',
+            borderColor: '#00f2fe',
+            color: radarOpen ? '#fff' : '#00f2fe'
+          }}
+        >
+          <Radio size={14} className="radar-spinner" />
+          <span>شاشة الرادار الحربي ({liveFlightsCount + liveVesselsCount} هدف)</span>
+        </button>
+
+        <div className="badge badge-cyan" style={{ padding: '6px 10px' }}>
+          <Ship size={13} color="#00f2fe" />
+          <span>البحر: {liveVesselsCount}</span>
         </div>
 
-        <div className="badge badge-cyan" style={{ padding: '6px 12px' }}>
-          <Cpu size={13} />
-          <span>الشبكة: {systemStatus.totalNodes} عقدة / {systemStatus.totalEdges} ممر</span>
-        </div>
-
-        <div className="badge badge-cyan" style={{ padding: '6px 12px' }}>
+        <div className="badge badge-cyan" style={{ padding: '6px 10px' }}>
           <Activity size={13} />
-          <span>طيران OPENSKY المباشر: {liveFlightsCount} طائرة</span>
+          <span>الجو: {liveFlightsCount}</span>
         </div>
 
         {activeDangerCount > 0 ? (
           <div className="badge badge-danger pulsing-danger" style={{ padding: '6px 12px' }}>
             <ShieldAlert size={14} />
-            <span>إنذارات ACLED: {activeDangerCount} منطقة خطر</span>
+            <span>إنذارات: {activeDangerCount}</span>
           </div>
         ) : (
           <div className="badge badge-emerald" style={{ padding: '6px 12px' }}>
             <Activity size={13} />
-            <span>المخاطر الجيوسياسية: مستقرة</span>
+            <span>مستقر</span>
           </div>
         )}
 
@@ -94,3 +111,4 @@ export default function Navbar({ systemStatus, activeDangerCount, liveFlightsCou
     </header>
   );
 }
+
